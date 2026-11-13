@@ -1,0 +1,13 @@
+{
+  "name": "the-folio-personal",
+  "version": "2.0.0-alpha.12",
+  "private": true,
+  "description": "Offline personal D&D character folios with per-character themes and offline 3D animated dice",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

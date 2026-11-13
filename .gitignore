@@ -1,0 +1,41 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+# Private data and original source sheets
+private/
+backups/
+*.backup.json
+pip-folio-backup-*.json
+*private-notes*.json
+*.character.json
+*.pdf
+.DS_Store
+.vscode/*.local.json
+
+# Per-character and full-library exports, optional browser output
+folio-*.json
+the-folio-library-*.json
+test-output/
+
+# Developer/editor and generated files
+__pycache__/
+.pytest_cache/
+.playwright/
+*.pyc
+*.zip
+Thumbs.db
+Desktop.ini
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.local.json
+*.local.backup
+!.github/

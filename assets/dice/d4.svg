@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" role="img" aria-labelledby="t">
+<title id="t">d4 polyhedral die shape</title>
+<defs><filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2.3" stdDeviation="1.4" flood-color="#201227" flood-opacity=".35"/></filter></defs>
+<g filter="url(#shadow)"><polygon points="11.34,9.00 31.50,21.74 11.77,63.00" fill="#37253e" stroke="#dfc89c" stroke-width="1.25" stroke-linejoin="round"/><polygon points="60.66,36.84 31.50,21.74 11.77,63.00" fill="#523653" stroke="#dfc89c" stroke-width="1.25" stroke-linejoin="round"/></g></svg>

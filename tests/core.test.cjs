@@ -1,0 +1,15 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const c=require('../js/core.js');
+const char={level:7,scores:{str:8,dex:16,con:14,int:8,wis:10,cha:18},profSaves:['wis','cha'],profSkills:[],expertise:[]};
+const r={hp:60,maxHp:60,tempHp:0,concentration:'',lastConcentrationDC:null};
+test('Pip level 7 derived values and aura',()=>{const v=c.derived(char);assert.equal(v.pb,3);assert.equal(v.ac,17);assert.equal(v.initiative,3);assert.equal(v.attackBonus,6);assert.equal(v.spellDC,15);assert.equal(v.spellAttack,7);assert.equal(v.saves.wis,3);assert.equal(v.saves.cha,7);assert.equal(v.saves.con,2);assert.equal(v.aura,4);});
+test('damage 5 from 60 and heal back, no negatives',()=>{const d=c.applyDamage(r,5);assert.equal(d.hp,55);assert.equal(c.applyHealing(d,5).hp,60);assert.equal(c.applyDamage(d,500).hp,0);});
+test('temporary HP absorbs damage; concentration check reminder',()=>{const x=c.applyDamage({...r,tempHp:3,concentration:"Hunter’s Mark"},5);assert.equal(x.hp,58);assert.equal(x.tempHp,0);assert.equal(x.lastConcentrationDC,10);assert.equal(c.applyDamage({...r,concentration:'Bless'},28).lastConcentrationDC,14);});
+test('initiative Guard 19 and Pip 16; advance to round 2; undo snapshot',()=>{
+ let e=c.beginEncounter({active:false,roster:[]},16,'pip');e=c.addActor(e,{id:'guard',name:'Guard',initiative:19});let before=JSON.parse(JSON.stringify(e));
+ assert.deepEqual(e.roster.map(x=>x.name),['Guard','Pip']);e=c.nextTurn(e);assert.equal(e.currentId,'guard');e=c.nextTurn(e);assert.equal(e.currentId,'pip');e=c.nextTurn(e);assert.equal(e.round,2);assert.equal(e.currentId,'guard');e=before;assert.equal(e.round,1);assert.equal(e.currentId,null);
+});
+test('late arrival keeps current actor, changing initiative keeps current actor',()=>{let e=c.beginEncounter({},16,'pip');e=c.addActor(e,{id:'guard',name:'Guard',initiative:19});e=c.nextTurn(e);e=c.addActor(e,{id:'cultist',name:'Cultist',initiative:22});assert.equal(e.currentId,'guard');e=c.setActorInitiative(e,'pip',25);assert.equal(e.currentId,'guard');});
+test('remove current actor picks next and wraps round properly',()=>{let e=c.beginEncounter({},16,'pip');e=c.addActor(e,{id:'guard',name:'Guard',initiative:19});e=c.nextTurn(e);e=c.removeActor(e,'guard');assert.equal(e.currentId,'pip');assert.equal(e.round,1);e=c.removeActor(e,'pip');assert.equal(e.currentId,null);});
+test('ties can be reversed without changing scores',()=>{let e=c.beginEncounter({},16,'pip');e=c.addActor(e,{id:'guard',name:'Guard',initiative:16});assert.deepEqual(e.roster.map(x=>x.id),['pip','guard']);e=c.shiftTie(e,'guard',-1);assert.deepEqual(e.roster.map(x=>x.id),['guard','pip']);});
+test('short rest recovers at most 1 Channel Divinity; long rest restores key resources',()=>{assert.equal(c.shortRest({channelDivinity:0}).channelDivinity,1);assert.equal(c.shortRest({channelDivinity:2}).channelDivinity,2);const x=c.longRest({...r,hp:5,channelDivinity:0,slots1:0,slots2:0,layOnHands:0});assert.equal(x.hp,60);assert.equal(x.slots1,4);assert.equal(x.slots2,3);assert.equal(x.channelDivinity,2);});
