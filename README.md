@@ -1,10 +1,10 @@
 <div align="center">
 
-![The Folio banner](docs/assets/folio-banner.svg)
+![The Folio — open-book emblem and character-library banner](docs/assets/folio-banner.png)
 
 # The Folio
 
-**Your characters. Your campaigns. Your stories.**
+**Your characters. Your stories.**
 
 An offline-first, customizable D&D character-sheet companion built for quick reference and real play at the table.
 
@@ -21,9 +21,11 @@ An offline-first, customizable D&D character-sheet companion built for quick ref
 
 ## Why The Folio?
 
-The Folio combines the familiar anatomy of a tabletop character sheet with the conveniences of a digital companion. Keep HP, features, spells, attacks, and notes close at hand—without having to sign in, host a server, or subscribe to a service.
+I started The Folio because I wanted an easier way to stay organized during D&D sessions. Between a character sheet, spell descriptions, inventory, and notes from previous games, it was easy for important details to end up scattered around. I wanted the familiar layout of a traditional character sheet, with a few digital conveniences that made it easier to focus on actually playing.
 
-Started as a bespoke sheet for **Pip / Papillon**, the project now supports a library of distinct characters and campaign folders. Each character can have its own appearance, rules data, and saved state. Pip's butterfly-and-masquerade theme is a preset, **not** the default for every character.
+What began as a tool for one rather disorganized player grew into something I could reuse for different characters and campaigns. The Folio keeps HP, features, spells, attacks, equipment, and notes together, with automatic local saving and optional digital dice. It runs offline, with no account, server, or subscription needed to play.
+
+**Pip / Papillon** was the original character I built it around and is still included as an example. His butterfly-and-masquerade theme is one option, not the default: each character can have their own build, homebrew, and appearance.
 
 ## Features
 
