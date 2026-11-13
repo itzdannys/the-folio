@@ -84,7 +84,7 @@ Use the same browser and project location each time. You can create a desktop sh
 - Save your backup **outside this repository**. Local browser storage is not cloud sync and may be cleared.
 - Moving to a different browser, folder path, or `http://localhost` origin may mean importing your JSON backup again.
 
-For more details, see [Windows setup](WINDOWS_START_HERE.md) and [Data safety](docs/DATA_AND_PRIVACY.md).
+For more details about local storage and backup recovery, see [Data and privacy](docs/DATA_AND_PRIVACY.md).
 
 ## Development
 
@@ -117,7 +117,7 @@ Optional Playwright/Chromium browser checks are described in [TESTING.md](TESTIN
 └── README.md
 ```
 
-[Architecture overview](docs/ARCHITECTURE.md) · [Test notes](TESTING.md) · [Contributing](CONTRIBUTING.md)
+[Architecture overview](docs/ARCHITECTURE.md) · [Test notes](TESTING.md) · [Roadmap](ROADMAP.md)
 
 ## Rules coverage and limitations
 

@@ -26,4 +26,4 @@ Notable project changes are summarized here. Dates are project milestones, not p
 - **8** — Character library, independent saves, optional campaign folders.
 - **1–7** — Pip-specific sheet, combat, spellbook, inventory, editor, journal and print flows.
 
-See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the more detailed milestone history.
+For upcoming work and remaining limitations, see [ROADMAP.md](ROADMAP.md).
