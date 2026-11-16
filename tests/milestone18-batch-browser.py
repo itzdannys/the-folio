@@ -1,0 +1,90 @@
+"""Real Chromium checks for cross-class batch mechanics and persistence."""
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+import re,base64,shutil
+BASE=Path(__file__).resolve().parents[1]
+html=(BASE/'index.html').read_text('utf8').replace('<link rel="stylesheet" href="css/style.css">','<style>'+(BASE/'css/style.css').read_text()+'</style>')
+html=html.replace('</head>', '''<script>Object.defineProperty(window,'indexedDB',{configurable:true,value:undefined});const STORE={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>STORE[k]||null,setItem:(k,v)=>STORE[k]=String(v),removeItem:k=>delete STORE[k]}});window.confirm=()=>true;</script></head>''')
+html=re.sub(r'<script src="([^"]+)"></script>',lambda m:'<script>'+(BASE/m.group(1)).read_text().replace('</script>',r'<\/script>')+'</script>',html)
+for name in ('butterfly.svg','folio-seal.svg','folio-book.svg'):
+ html=html.replace('assets/'+name,'data:image/svg+xml;base64,'+base64.b64encode((BASE/'assets'/name).read_bytes()).decode())
+with sync_playwright() as p:
+ browser=p.chromium.launch(headless=True,executable_path=shutil.which('chromium'),args=['--no-sandbox','--disable-dev-shm-usage'])
+ page=browser.new_page(viewport={'width':1280,'height':900});page.set_default_timeout(12000)
+ errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
+ page.set_content(html,wait_until='domcontentloaded')
+ def new(name,class_id,subclass,lv,background=None):
+  page.locator('[data-action=library-new-character]').first.click()
+  f=page.locator('#library-character-create')
+  f.locator('[name=name]').fill(name)
+  f.locator('[name=classId]').select_option(class_id)
+  f.locator('[name=level]').fill(str(lv))
+  f.locator('[name=subclassId]').select_option(subclass)
+  if background:f.locator('[name=backgroundId]').select_option(background)
+  f.locator('button[type=submit]').click()
+  page.locator('.library-character').filter(has_text=name).locator('[data-action=library-open]').first.click()
+ page.evaluate('window.FolioDice.rollDie=side=>side===20?14:side===10?7:4')
+ new('Brutal Batch Barbarian','class:barbarian','subclass:berserker',17)
+ assert page.locator('[data-action=class-check-roll]').count()==1
+ assert 'Relentless Rage' in page.locator('body').inner_text()
+ page.locator('[data-action=rage-toggle]').click()
+ assert page.locator('#damage-relentless').count()==1
+ page.locator('[data-action=nav][data-tab=inventory]:visible').first.click()
+ page.locator('[data-action=weapon-catalog-open]').click()
+ page.locator('[data-action=weapon-catalog-add][data-id=battleaxe]').first.click()
+ page.locator('[data-action=close-modal]').last.click()
+ page.locator('.ledger-item').filter(has_text='Battleaxe').locator('[data-action=item-equip]').first.click()
+ page.locator('.ledger-item').filter(has_text='Battleaxe').locator('[data-action=weapon-attack]').first.click()
+ f=page.locator('#weapon-attack-form')
+ f.locator('[name=recklessAttack]').check()
+ f.locator('[name=brutal1]').select_option('forceful')
+ f.locator('[name=brutal2]').select_option('sundering')
+ f.locator('[name=targetAC]').fill('10')
+ f.locator('button[type=submit]').click()
+ assert 'Brutal Strike' in page.locator('.toast').inner_text(),page.locator('.toast').inner_text()
+ assert 'Berserker Frenzy' in page.locator('.toast').inner_text()
+ page.locator('.ledger-item').filter(has_text='Battleaxe').locator('[data-action=weapon-attack]').first.click()
+ assert page.locator('#weapon-attack-form [name=brutal1]').count()==1
+ page.locator('[data-action=close-modal]').last.click()
+ page.locator('[data-action=go-library]').first.click()
+ page.locator('.library-character').filter(has_text='Brutal Batch Barbarian').locator('[data-action=library-open]').first.click()
+ assert page.locator('[data-action=barbarian-new-turn]').count()==1
+ page.locator('[data-action=barbarian-new-turn]').click()
+ page.locator('[data-action=nav][data-tab=combat]:visible').first.click()
+ assert page.locator('#encounter-surprised').count()==1
+ page.locator('[data-action=encounter-start]').first.click()
+ assert 'Initiative rolled' in page.locator('body').inner_text()
+ assert 'ROUND 1' in page.locator('body').inner_text()
+ page.locator('[data-action=go-library]').first.click()
+ new('Countercharm Batch Bard','class:bard','subclass:college-of-lore',7)
+ assert page.locator('[data-action=bard-countercharm]').count()==1
+ page.locator('#countercharm-target').select_option('self')
+ page.locator('#countercharm-condition').select_option('Charmed')
+ page.locator('#countercharm-ability').select_option('cha')
+ page.locator('#countercharm-original').fill('8')
+ page.locator('#countercharm-dc').fill('15')
+ page.locator('[data-action=bard-countercharm]').click()
+ assert page.locator('[data-action=bard-countercharm]').is_disabled()
+ assert 'Countercharm reroll' in page.locator('body').inner_text()
+ page.locator('[data-action=go-library]').first.click()
+ page.locator('.library-character').filter(has_text='Countercharm Batch Bard').locator('[data-action=library-open]').first.click()
+ assert page.locator('[data-action=bard-countercharm]').is_disabled(),'reaction was not persisted'
+ page.locator('[data-action=reaction-reset]').first.click()
+ assert not page.locator('[data-action=bard-countercharm]').is_disabled()
+ page.locator('[data-action=go-library]').first.click()
+ new('Reliable Batch Rogue','class:rogue','subclass:thief',7,'background:criminal')
+ assert page.locator('[data-action=class-check-roll]').count()==1
+ page.locator('#class-check-type').select_option('skill')
+ page.locator('#class-check-skill').select_option('Stealth')
+ page.locator('#class-check-dc').fill('15')
+ page.evaluate('window.FolioDice.rollDie=side=>side===20?2:4')
+ page.locator('[data-action=class-check-roll]').click()
+ assert 'Reliable Talent' in page.locator('body').inner_text()
+ assert 'd20 10' in page.locator('body').inner_text()
+ page.set_viewport_size({'width':390,'height':844})
+ assert page.locator('[data-action=class-check-roll]').is_visible()
+ assert not errors,errors
+ (BASE/'test-output').mkdir(exist_ok=True)
+ page.screenshot(path=str(BASE/'test-output/milestone18-batch-rogue-mobile.png'),full_page=True)
+ browser.close()
+print('PASS: Brutal Strike/Frenzy, Barbarian and Bard saved state, Rogue Reliable Talent, mobile layout')

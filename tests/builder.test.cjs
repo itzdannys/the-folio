@@ -2,8 +2,8 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 require('../js/inventory.js');require('../js/data.js');require('../js/core.js');require('../js/character.js');require('../js/journal.js');require('../js/storage.js');
 const B=require('../js/builder.js'),L=require('../js/library.js'),D=globalThis.PipData,S=globalThis.PipStorage,C=globalThis.PipCore,H=globalThis.PipCharacter;
 const raw=(changes={})=>({name:'Ilyra',classId:'class:wizard',speciesId:'species:elf',backgroundId:'background:sage',subclassId:'',featId:'',level:5,scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},maxHp:'',backgroundPlus:'int',backgroundOne:'wis',...changes});
-test('12 classes, nine SRD species, four SRD backgrounds and all levels 1–20 are selectable',()=>{
- assert.equal(B.classes.length,12);assert.equal(B.species.length,9);assert.equal(B.backgrounds.length,4);
+test('12 classes, 26 named species references (nine SRD), sixteen PHB-indexed backgrounds and all levels 1–20 are selectable',()=>{
+ assert.equal(B.classes.length,12);assert.equal(B.species.length,26);assert.equal(B.species.filter(s=>s.sourceId==='srd-2024').length,9);assert.equal(B.backgrounds.length,16);
  for(const c of B.classes)for(let level=1;level<=20;level++){
   const b=B.buildFromInput(raw({classId:c.id,level,backgroundPlus:'',backgroundOne:''}));
   assert.equal(b.level,level);assert.equal(b.slotMax.length,9);assert.equal(b.hitDie,c.hitDie);

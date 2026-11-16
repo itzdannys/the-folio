@@ -1,0 +1,70 @@
+{
+  "format": "folio-source-pack",
+  "version": 1,
+  "id": "user-campaign-book-notes",
+  "name": "My Sourcebook Notes",
+  "edition": "current",
+  "published": "2026",
+  "license": "User-provided notes; do not redistribute proprietary text",
+  "description": "Illustrative ORIGINAL entries. Replace with source-checked facts from a book you own.",
+  "entries": [
+    {
+      "id": "cartographer",
+      "category": "background",
+      "name": "Cartographer (example)",
+      "description": "Example background for personal campaign notes. This is not a claim about any official book.",
+      "abilities": [
+        "dex",
+        "int",
+        "wis"
+      ],
+      "skills": [
+        "Investigation",
+        "Survival"
+      ],
+      "tool": "Cartographer's Tools",
+      "feat": "Skilled"
+    },
+    {
+      "id": "traveling-scholar",
+      "category": "feat",
+      "name": "Traveling Scholar (example)",
+      "description": "Example user-entered feat. The mechanical benefits must be tracked manually.",
+      "featCategory": "General",
+      "minLevel": 4
+    },
+    {
+      "id": "moonling",
+      "category": "species",
+      "name": "Moonling (original example)",
+      "description": "A completely fictitious species created to demonstrate personal notes.",
+      "speed": 35,
+      "sizes": [
+        "Small"
+      ],
+      "creatureType": "Fey",
+      "traits": [
+        "Moon Step",
+        "Night-Sight"
+      ]
+    },
+    {
+      "id": "star-song",
+      "category": "spell",
+      "name": "Star Song (original example)",
+      "description": "An original fictional spell name used to show personal metadata import; check your own notes for effects.",
+      "level": 2,
+      "classes": [
+        "Bard",
+        "Wizard"
+      ],
+      "school": "Illusion",
+      "castingTime": "Action",
+      "range": "60 feet",
+      "components": "V, S",
+      "duration": "Instantaneous",
+      "concentration": null,
+      "ritual": null
+    }
+  ]
+}

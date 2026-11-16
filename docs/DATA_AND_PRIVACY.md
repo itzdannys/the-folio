@@ -19,6 +19,12 @@ Character state is stored by the browser for the app's origin (using IndexedDB o
 
 Do not commit backup JSON, personal notes, private character sheets, screenshots containing personal information, or sourcebook scans. The repository `.gitignore` excludes typical backup names, but you should always review `git status` before publishing.
 
+## Portraits, emblems, and tokens
+
+Milestone 14 adds two local raster-image uploads per character: a character portrait and an optional sheet emblem. Images are resized and compressed in the browser before they are saved. The token preview is generated locally using a canvas. Artwork is stored **once on the character's library record**, outside the combat Undo history, and included in both full-library exports and the new media-aware single-character export format. Older individual character backups without art still import normally.
+
+A custom image can still consume substantial browser storage, especially across many characters. If the app shows **SAVE FAILED**, stop editing and export a library backup; check disk/site-storage quota before continuing. Images are not transferred to any remote service. Avoid importing sensitive personal photographs unless you are comfortable with their inclusion in local JSON exports.
+
 ## Custom backgrounds
 
 Uploaded images are processed locally and saved with the character. They can make JSON exports larger. Include your character's exported backup if you want to preserve that custom background elsewhere.

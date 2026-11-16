@@ -140,7 +140,7 @@ test('class-specific spellbook keeps the compact view and moves the full catalog
  const bookHtml=UI.spellbookView(s,{spellFilter:{view:'all'}});
  assert.ok(bookHtml.includes('Prepared Wizard spells'));assert.ok(bookHtml.includes('Manage spells'));assert.ok(!bookHtml.includes('339 spells in the bundled catalogue'));
  const prepHtml=UI.preparationView(s,{catalogDraft:[id],catalogSearch:'',catalogLevel:'',catalogSchool:'',catalogConcentration:'',catalogRitual:'',swapOut:id,swapIn:''});
- assert.ok(prepHtml.includes('339 spells in the bundled catalogue'));assert.ok(prepHtml.includes('Wizard spell catalogue'));
+ assert.ok(prepHtml.includes('indexed spells'));assert.ok(prepHtml.includes('Wizard spell catalogue'));
 });
 
 test('Pip keeps his original grouped Spellbook and can queue the two personal Paladin options',()=>{
