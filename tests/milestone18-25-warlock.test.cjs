@@ -1,0 +1,61 @@
+const {test}=require('node:test'),A=require('node:assert/strict');
+require('../js/data.js');require('../js/spell-catalog.js');require('../js/spell-expansions.js');require('../js/spell-supplements.js');require('../js/inventory.js');require('../js/core.js');require('../js/character.js');require('../js/dice.js');require('../js/journal.js');require('../js/appearance.js');require('../js/layout.js');require('../js/origin-catalog.js');
+const W=require('../js/warlock-2024.js'),M=require('../js/class-mechanics.js'),B=require('../js/builder.js'),R=require('../js/rules-engine.js'),I=require('../js/inventory.js'),Core=require('../js/core.js');
+const die=n=>n===20?17:n===10?6:n===8?5:n===6?4:3;
+const subs=['Archfey Patron','Celestial Patron','Fiend Patron','Great Old One Patron'];
+function fixture(n=7,sub='Archfey Patron',invocations=[]){
+ const cls=B.classes.find(x=>x.name==='Warlock'),c={templateKind:'starter',className:'Warlock',subclass:sub,level:n,name:'Test Warlock',scores:{str:10,dex:14,con:14,int:10,wis:12,cha:18},speed:30,profSaves:['wis','cha'],profSkills:[],expertise:[],overrides:{},build:{characterClass:'Warlock',subclass:sub,slotMax:B.slotsFor(cls,n),spellAbility:'cha',warlockInvocations:invocations}};
+ return {character:c,resources:{hp:25,maxHp:48,tempHp:0,hitDice:n,conditions:[],concentration:'',spellSlots:[...c.build.slotMax],classState:{},classResources:M.normalizeResources(c),mysticArcanum:R.mysticArcanumResources(c)},spellbook:{catalogSelections:[],custom:[],catalogSnapshots:{}},inventory:{items:[]}};
+}
+function invFill(n,...base){const options=['Pact of the Blade','Pact of the Tome','Pact of the Chain','Eldritch Mind','Armor of Shadows','Fiendish Vigor','Devil’s Sight','Otherworldly Leap','Misty Visions','Mask of Many Faces','Ascendant Step','Whispers of the Grave','Witch Sight'];return [...base,...options.filter(x=>!base.includes(x))].slice(0,W.SLOTS[n]);}
+const spell=name=>R.catalog().find(x=>x.name===name);
+test('2024 Warlock Pact Magic and Invocation advancement at every level 1–20',()=>{
+ for(let n=1;n<=20;n++){const s=fixture(n),caps=s.character.build.slotMax,used=caps.filter(Boolean),slot=n<=1?1:n<=10?2:n<=16?3:4,lv=n<=2?1:n<=4?2:n<=6?3:n<=8?4:5;A.deepEqual(used,[slot]);A.equal(caps.indexOf(slot)+1,lv);A.equal(W.SLOTS[n],[0,1,3,3,3,5,5,6,6,7,7,7,8,8,8,9,9,9,10,10,10][n]);A.equal(R.preparationLimits(s.character).cantrips,n>=10?4:n>=4?3:2);A.equal(M.resourcesFor(s.character).find(x=>x.key==='magical-cunning')?.max,n>=2?1:undefined);}
+});
+test('All 4 Warlock patrons are selectable in builder and all features stay level gated',()=>{for(const sub of subs){A.ok(B.subclasses.some(x=>x.classId==='class:warlock'&&x.name===sub));A.equal(W.subclass(fixture(2,sub).character),'');A.equal(W.subclass(fixture(3,sub).character),sub);}A.equal(W.resourcesFor(fixture(20,'Celestial Patron').character).find(x=>x.key==='warlock-healing-light').max,21);});
+test('Patron spells resolve to catalog and remain nonselected shared spellbook grants',()=>{
+ for(const sub of subs){for(const n of [3,5,7,9]){const c=fixture(n,sub).character;for(const name of W.granted(c)){const key=R.catalogKeyForName(name);A.ok(key,'No indexed catalog spell '+sub+' '+n+': '+name);const canonical=R.catalog().find(x=>x.key===key)?.name;A.ok(R.classGrantedSpellNames(c).includes(canonical),'Missing '+name);}}}
+ A.ok(W.granted(fixture(9,'Archfey Patron').character).includes('Contact Other Plane'));
+});
+test('Invocation selections validate counts, levels, duplicate and pact dependency',()=>{
+ let s=fixture(2);A.throws(()=>W.choose(s,['Pact of the Blade']),/exactly/);
+ A.throws(()=>W.choose(s,['Pact of the Blade','Thirsting Blade','Eldritch Mind']),/Unqualified/);s=W.choose(s,['Pact of the Blade','Eldritch Mind','Armor of Shadows']);A.equal(s.character.build.warlockInvocations.length,3);A.throws(()=>W.choose(s,['Eldritch Mind','Eldritch Mind','Pact of the Blade']),/cannot be selected twice/);
+});
+test('Pact of Tome selections enforce three distinct cantrips and two level-one rituals',()=>{
+ const s=fixture(5,'Fiend Patron',['Pact of the Tome']);A.throws(()=>W.tome(s,['Light','Light','Mage Hand'],['Detect Magic','Identify']),/different/);
+ const ritual=R.catalog().filter(x=>x.level===1&&x.ritual).slice(0,2);const cantrip=R.catalog().filter(x=>x.level===0).slice(0,3);A.ok(ritual.length===2);const out=W.tome(s,cantrip.map(x=>x.name),ritual.map(x=>x.name));A.equal(out.character.build.warlockTomeCantrips.length,3);A.ok(W.granted(out.character).includes(cantrip[0].name));
+});
+test('Warlock cantrip blast rolls per-beam at levels 1/5/11/17 with correct CHA damage',()=>{
+ for(const [n,cnt] of [[1,1],[5,2],[11,3],[17,4]]){let s=fixture(n,'Archfey Patron',['Agonizing Blast::Eldritch Blast','Repelling Blast::Eldritch Blast','Eldritch Spear::Eldritch Blast']);s.spellbook.catalogSelections=[spell('Eldritch Blast').key];s=W.eldritchBlast(s,{target:'Test dummy',targetAC:15,confirmed:true,largeOrSmaller:true},die);const ef=s.resources.lastClassEffect;A.equal(ef.hits.length,cnt);A.equal(ef.hits[0].damage,10);A.equal(ef.hits[0].pushFeet,10);A.equal(ef.range,120+30*n);A.throws(()=>W.eldritchBlast(W.newTurn(s),{target:'',confirmed:false}),/Confirm/);}
+});
+test('Pact of Blade attack uses CHA with no invented hit outcome',()=>{
+ let s=fixture(12,'Fiend Patron',['Pact of the Blade','Thirsting Blade','Devouring Blade']);s=W.pactWeapon(s,{weapon:'Longsword',damage:'1d8'});s=W.newTurn(s);for(let i=1;i<=3;i++){s=W.pactWeapon(s,{weapon:'Longsword',damage:'1d8',target:'Orc',confirmed:true,attack:true},die);A.equal(s.resources.lastClassEffect.attackNumber,i);}A.throws(()=>W.pactWeapon(s,{weapon:'Longsword',damage:'1d8',target:'Orc',confirmed:true,attack:true},die),/attacks left/);
+});
+test('Pact of Chain and Gaze of Two Minds require invocations and confirmation',()=>{let s=fixture(9,'Fiend Patron',['Pact of the Chain','Gaze of Two Minds']);A.throws(()=>W.chain(s,{form:'Imp'}),/Confirm/);s=W.chain(s,{form:'Imp',confirmed:true});A.equal(s.resources.classState.warlockFamiliar.form,'Imp');s=W.gaze(s,{target:'Willing ally',confirmed:true});A.equal(s.resources.classState.warlockGazeTarget,'Willing ally');});
+test('Archfey free Misty Step consumes resource and confirms alternate effects',()=>{let s=fixture(10,'Archfey Patron');const key=spell('Misty Step').key;A.ok(R.castOptions(s.character,s.spellbook,s.resources,key).some(x=>x.key==='warlock-fey-step'));let r=R.cast(s.character,s.spellbook,s.resources,key,'warlock-fey-step');A.equal(r.resources.classResources['warlock-fey-steps'],3);s=W.newTurn({...s,resources:r.resources});s=W.action(s,'fey-step',{choice:'Taunting Step'},die);A.equal(s.resources.classResources['warlock-fey-steps'],2);});
+test('Celestial Healing Light consumes dice and heals only the actual selected self sheet',()=>{let s=W.newTurn(fixture(14,'Celestial Patron'));s=W.action(s,'heal',{target:'Self',confirmed:true,value:2},die);A.equal(s.resources.hp,33);A.equal(s.resources.classResources['warlock-healing-light'],13);A.throws(()=>W.action(s,'heal',{target:'Self',confirmed:true,value:1},die),/bonus already/);});
+test('Fiend Hurl, GOO Awakened Mind and Clairvoyant require patron and confirmation',()=>{const fiend=fixture(14,'Fiend Patron');A.throws(()=>W.action(fiend,'hurl',{target:'Bugbear'},die),/Confirm/);const out=W.action(fiend,'hurl',{target:'Bugbear',confirmed:true},die);A.equal(out.resources.classResources['warlock-hurl'],0);let s=W.newTurn(fixture(14,'Great Old One Patron'));s=W.action(s,'mind',{target:'Friend',confirmed:true},die);A.equal(s.resources.classState.warlockMind.minutes,14);s=W.action(s,'clairvoyant',{target:'Friend',confirmed:true},die);A.equal(s.resources.classResources['warlock-clairvoyant'],0);});
+test('Contact Patron is free once per Long Rest, successful roll needs no fabricated DC',()=>{let s=fixture(9);const key=spell('Contact Other Plane').key;let opts=R.castOptions(s.character,s.spellbook,s.resources,key);A.ok(opts.some(x=>x.key==='warlock-contact'));const cast=R.cast(s.character,s.spellbook,s.resources,key,'warlock-contact');A.ok(cast.resources.classState.warlockContactUsed);A.ok(!R.castOptions(s.character,cast.book,cast.resources,key).some(x=>x.key==='warlock-contact'));});
+test('Magical Cunning refreshes ceil half slots once, 20th Eldritch Master refreshes all',()=>{let s=fixture(11);s.resources.spellSlots[4]=0;s=M.useMagicalCunning(s);A.equal(s.resources.spellSlots[4],2);A.throws(()=>M.useMagicalCunning(s),/already/);let top=fixture(20);top.resources.spellSlots[4]=0;top=M.useMagicalCunning(top);A.equal(top.resources.spellSlots[4],4);});
+test('Armor of Shadows applies only while unarmored; Fiendish Vigor maximizes False Life',()=>{let s=fixture(3,'Archfey Patron',['Armor of Shadows','Fiendish Vigor']);for(const [name,trait] of [['Mage Armor','warlockMageArmor'],['False Life',null]]){const sp=spell(name);A.ok(sp,name+' indexed');const cast=R.cast(s.character,s.spellbook,s.resources,sp.key,'warlock-invocation');s={...s,resources:cast.resources};if(trait)A.ok(s.resources.classState[trait]);else A.equal(s.resources.tempHp,12);}A.equal(Core.derived(s.character,s.inventory,s.resources).ac,15);});
+test('Book of Shadows gift names and protection once per Long Rest, with no invented creature health',()=>{let s=fixture(12,'Fiend Patron',['Pact of the Tome','Gift of the Protectors']);s=W.protectorsNames(s,['Ally A','Ally B']);A.deepEqual(s.resources.classState.warlockProtectorNames,['Ally A','Ally B']);s=W.action(s,'protectors',{target:'Ally A',confirmed:true},die);A.equal(s.resources.classResources['warlock-protectors'],0);A.equal(s.resources.hp,25);});
+test('Warlock character rebuild preserves invocations and Tome book; shared classes remain isolated',()=>{
+ const s=fixture(10,'Archfey Patron',['Pact of the Tome','Devil’s Sight']),c=s.character;A.ok(W.isWarlock(c));A.equal(W.isWarlock({...c,build:{...c.build,characterClass:'Sorcerer'},className:'Sorcerer'}),false);
+ const build=B.buildFromInput({name:'Test Warlock',level:11,classId:'class:warlock',subclassId:'subclass:archfey-patron',speciesId:'species:human',backgroundId:'background:acolyte',scores:{str:10,dex:14,con:14,int:10,wis:12,cha:18},backgroundPlus:'int',backgroundOne:'cha'});
+ const changed=B.applyToState(s,build);A.deepEqual(changed.character.build.warlockInvocations,['Pact of the Tome','Devil’s Sight']);A.equal(changed.character.level,11);
+});
+test('2024 Celestial Radiant and Great Old One Psychic resistances are automatic and class-specific',()=>{
+ const names=['Celestial Patron','Great Old One Patron'];const types=['Radiant','Psychic'];for(let i=0;i<2;i++){
+  const s=fixture(12,names[i]);const d=M.resolveIncomingDamage(s,18,types[i]);A.equal(d.details.resolved,9);A.equal(d.details.automaticResistance,true);A.equal(d.details.source,i===0?'Radiant Soul':'Thought Shield');
+  const other=M.resolveIncomingDamage(fixture(12,names[1-i]),18,types[i]);A.equal(other.details.automaticResistance,false);
+ }
+});
+test('Gift of the Depths swim speed, Devil’s Sight and Witch Sight are surfaced as passive sheet traits',()=>{
+ const s=fixture(16,'Fiend Patron',['Gift of the Depths','Devil’s Sight','Witch Sight']);const derived=Core.derived(s.character,s.inventory,s.resources);A.equal(derived.swimSpeed,30);A.equal(derived.devilsSightFeet,120);A.equal(derived.truesightFeet,30);A.equal(Core.derived(fixture(16).character,{items:[]},fixture(16).resources).swimSpeed,null);
+});
+test('Gaze of Two Minds can be maintained by a later Bonus Action on the same willing connection',()=>{
+ let s=W.newTurn(fixture(9,'Great Old One Patron',['Gaze of Two Minds']));s=W.gaze(s,{target:'Friendly druid',confirmed:true});A.throws(()=>W.gaze(s,{target:'Friendly druid',confirmed:true,maintain:true}),/bonus already/);s=W.newTurn(s);s=W.gaze(s,{target:'Friendly druid',confirmed:true,maintain:true});A.equal(s.resources.lastClassEffect.feature,'Gaze of Two Minds · maintained');
+});
+test('Lifedrinker healing rolls a Warlock d8 Hit Die separately from extra d6 damage',()=>{
+ let s=fixture(10,'Fiend Patron',['Lifedrinker','Pact of the Blade']);s.resources.hp=10;s=W.action(s,'lifedrinker',{target:'Confirmed target',confirmed:true,mode:'heal',choice:'Necrotic'},die);A.equal(s.resources.hitDice,9);A.equal(s.resources.hp,17);A.equal(s.resources.lastClassEffect.damage,4);
+});

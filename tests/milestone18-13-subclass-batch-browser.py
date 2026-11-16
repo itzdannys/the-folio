@@ -1,0 +1,80 @@
+"""Interactive desktop/mobile checks for Milestone 18.13 SRD subclass batch."""
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+import re, base64, shutil
+BASE=Path(__file__).resolve().parents[1]
+html=(BASE/'index.html').read_text('utf8').replace('<link rel="stylesheet" href="css/style.css">','<style>'+(BASE/'css/style.css').read_text()+'</style>')
+html=html.replace('</head>', '''<script>Object.defineProperty(window,'indexedDB',{configurable:true,value:undefined});const STORE={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>STORE[k]||null,setItem:(k,v)=>STORE[k]=String(v),removeItem:k=>delete STORE[k]}});window.confirm=()=>true;</script></head>''')
+html=re.sub(r'<script src="([^"]+)"></script>',lambda m:'<script>'+(BASE/m.group(1)).read_text().replace('</script>',r'<\/script>')+'</script>',html)
+for name in ('butterfly.svg','folio-seal.svg','folio-book.svg'):
+ html=html.replace('assets/'+name,'data:image/svg+xml;base64,'+base64.b64encode((BASE/'assets'/name).read_bytes()).decode())
+with sync_playwright() as p:
+ browser=p.chromium.launch(headless=True,executable_path=shutil.which('chromium'),args=['--no-sandbox','--disable-dev-shm-usage'])
+ page=browser.new_page(viewport={'width':1280,'height':900});page.set_default_timeout(10000)
+ errors=[];page.on('pageerror',lambda err: errors.append(str(err)))
+ page.set_content(html,wait_until='domcontentloaded')
+ def create(name,klass,subclass,level):
+  page.locator('[data-action=library-new-character]').first.click()
+  form=page.locator('#library-character-create')
+  form.locator('[name=name]').fill(name)
+  form.locator('[name=classId]').select_option(klass)
+  form.locator('[name=level]').fill(str(level))
+  form.locator('[name=subclassId]').select_option(subclass)
+  form.locator('button[type=submit]').click()
+  assert form.count()==0,'Create error: '+page.locator('body').inner_text()[-1000:]
+  page.locator('.library-character').filter(has_text=name).locator('[data-action=library-open]').first.click()
+ def library():page.locator('[data-action=go-library]').first.click()
+ def reopen(name):page.locator('.library-character').filter(has_text=name).locator('[data-action=library-open]').first.click()
+ page.evaluate('window.FolioDice.rollDie=side=>side===20?15:side===12?8:side===10?7:side===8?6:4')
+ create('Lore Audit Bard','class:bard','subclass:college-of-lore',14)
+ assert page.locator('[data-action=lore-cutting-words]').count()==1
+ page.locator('#lore-enemy-kind').select_option('attack')
+ page.locator('#lore-enemy-total').fill('18')
+ page.locator('#lore-enemy-dc').fill('15')
+ page.locator('#lore-enemy-visible').check()
+ page.locator('[data-action=lore-cutting-words]').click()
+ assert 'Cutting Words: 11' in page.locator('.toast').inner_text(),page.locator('.toast').inner_text()
+ assert page.locator('[data-action=lore-cutting-words]').is_disabled()
+ page.locator('[data-action=class-resource][data-id=bardic-inspiration][data-delta="1"]').first.click()
+ page.locator('#lore-own-total').fill('10');page.locator('#lore-own-dc').fill('30')
+ page.locator('[data-action=lore-peerless]').click()
+ assert 'Inspiration refunded' in page.locator('.toast').inner_text(),page.locator('.toast').inner_text()
+ library();reopen('Lore Audit Bard')
+ assert page.locator('[data-action=lore-cutting-words]').is_disabled(),'Reaction lost after reopen'
+ page.locator('[data-action=reaction-reset]').first.click()
+ assert not page.locator('[data-action=lore-cutting-words]').is_disabled()
+ library()
+ create('Land Audit Druid','class:druid','subclass:circle-of-the-land',10)
+ page.locator('#circle-land-type').select_option('polar')
+ page.locator('#circle-land-rest').check()
+ page.locator('[data-action=circle-land-choose]').click()
+ assert 'Current land: polar' in page.locator('body').inner_text(),page.locator('body').inner_text()[-2000:]
+ assert 'Nature’s Ward' in page.locator('body').inner_text()
+ page.locator('#land-aid-self').check()
+ page.locator('[data-action=land-aid]').click()
+ assert 'Land’s Aid' in page.locator('.toast').inner_text(),page.locator('.toast').inner_text()
+ library();reopen('Land Audit Druid')
+ assert 'Current land: polar' in page.locator('body').inner_text()
+ page.locator('[data-action=nav][data-tab=spellbook]:visible').first.click()
+ assert 'Cone of Cold' in page.locator('body').inner_text(),'Circle spells missing after reopen'
+ library()
+ create('Evoker Audit Wizard','class:wizard','subclass:evoker',10)
+ page.locator('#evoker-cantrip-confirm').check()
+ page.locator('#evoker-cantrip-damage').fill('17')
+ page.locator('[data-action=evoker-potent]').click()
+ assert 'Potent Cantrip: 8' in page.locator('.toast').inner_text(),page.locator('.toast').inner_text()
+ page.locator('#evoker-sculpt-level').fill('3')
+ page.locator('#evoker-sculpt-allies').fill('4')
+ page.locator('[data-action=evoker-sculpt]').click()
+ assert '4 protected' in page.locator('.toast').inner_text()
+ page.locator('#evoker-damage-base').fill('24')
+ page.locator('[data-action=evoker-empower]').click()
+ assert 'Empowered Evocation:' in page.locator('.toast').inner_text()
+ page.set_viewport_size({'width':390,'height':844})
+ assert page.locator('[data-action=evoker-potent]').is_visible()
+ assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+2'),'Mobile horizontal overflow'
+ (BASE/'test-output').mkdir(exist_ok=True)
+ page.screenshot(path=str(BASE/'test-output/milestone18-13-evoker-mobile.png'),full_page=True)
+ assert not errors, errors
+ browser.close()
+print('PASS: College of Lore, Circle of the Land, Evoker actions, save/reopen, land spells, mobile')

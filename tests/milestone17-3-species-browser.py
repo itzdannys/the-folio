@@ -1,0 +1,62 @@
+"""M17.3 interactive smoke: metadata, choices, saved features, imports, and mobile."""
+from pathlib import Path
+import re,base64,shutil,json
+from playwright.sync_api import sync_playwright
+BASE=Path(__file__).resolve().parents[1]
+html=(BASE/'index.html').read_text('utf8')
+html=html.replace('<link rel="stylesheet" href="css/style.css">','<style>'+(BASE/'css/style.css').read_text()+'</style>')
+html=html.replace('</head>', '''<script>Object.defineProperty(window,'indexedDB',{configurable:true,value:undefined});const STORE={};Object.defineProperty(window,'localStorage',{configurable:true,value:{getItem:k=>STORE[k]||null,setItem:(k,v)=>STORE[k]=String(v),removeItem:k=>delete STORE[k]}});window.confirm=()=>true;</script></head>''')
+html=re.sub(r'<script src="([^"]+)"></script>',lambda m:'<script>'+(BASE/m.group(1)).read_text().replace('</script>',r'<\/script>')+'</script>',html)
+for name in ('butterfly.svg','folio-seal.svg','folio-book.svg'):
+    html=html.replace('assets/'+name,'data:image/svg+xml;base64,'+base64.b64encode((BASE/'assets'/name).read_bytes()).decode())
+with sync_playwright() as p:
+    chrome=shutil.which('chromium') or shutil.which('google-chrome')
+    browser=p.chromium.launch(headless=True,executable_path=chrome,args=['--no-sandbox','--disable-dev-shm-usage'])
+    page=browser.new_page(viewport={'width':1280,'height':900});errors=[]
+    page.on('pageerror',lambda err:errors.append(str(err)))
+    page.set_content(html,wait_until='domcontentloaded')
+    page.locator('[data-action=library-new-character]').first.click()
+    f=page.locator('#library-character-create');assert f.is_visible()
+    assert f.locator('select[name=speciesId] option').count()==27
+    assert 'Eberron: Forge of the Artificer' in f.locator('select[name=speciesId]').inner_text()
+    f.locator('input[name=name]').fill('Cass')
+    f.locator('select[name=classId]').select_option('class:rogue')
+    f.locator('select[name=speciesId]').select_option('species:changeling')
+    assert 'Shape-Shifter' in f.locator('#builder-species-fields').inner_text()
+    assert '2025' in f.locator('#builder-species-fields').inner_text()
+    f.locator('select[name=speciesSize]').select_option('Small')
+    f.locator('select[name=speciesSkill1]').select_option('Insight')
+    f.locator('select[name=speciesSkill2]').select_option('Performance')
+    assert 'Fey · Small' in page.locator('#builder-live-preview').inner_text()
+    assert 'Species skills: Insight · Performance' in page.locator('#builder-live-preview').inner_text()
+    f.locator('button[type=submit]').click()
+    assert page.locator('.library-character').filter(has_text='Cass').count()==1
+    page.locator('[data-action=library-new-character]').first.click()
+    f=page.locator('#library-character-create')
+    f.locator('input[name=name]').fill('Kal')
+    f.locator('select[name=classId]').select_option('class:monk')
+    f.locator('select[name=speciesId]').select_option('species:kalashtar')
+    assert f.locator('input[name=speciesSpeed]').is_visible()
+    assert 'Enter the species speed' in page.locator('#builder-live-preview').inner_text()
+    f.locator('input[name=speciesSpeed]').fill('30')
+    assert 'Kalashtar' in page.locator('#builder-live-preview').inner_text()
+    page.locator('.library-dialog .close-modal').click()
+    page.locator('[data-action=library-rules]').click()
+    pack=json.dumps({'format':'folio-source-pack','version':1,'id':'user-species-notes','name':'Owned Species Book','license':'Personal notes','published':'2026','description':'For play at my table','entries':[{'id':'moonling','category':'species','name':'Moonling','speed':35,'sizes':['Small'],'creatureType':'Fey','traits':['Moon Step'],'description':'Original custom species'}]})
+    page.locator('#library-source-import-file').set_input_files({'name':'personal-species.json','mimeType':'application/json','buffer':pack.encode()})
+    page.get_by_text('Owned Species Book').wait_for(state='visible')
+    page.locator('.library-dialog .close-modal').click()
+    page.locator('[data-action=library-new-character]').first.click()
+    f=page.locator('#library-character-create')
+    f.locator('select[name=speciesId]').select_option('source:user-species-notes:species:moonling')
+    assert 'Moon Step' in f.locator('#builder-species-fields').inner_text()
+    assert '35 ft' in f.locator('#builder-species-fields').inner_text()
+    page.set_viewport_size({'width':390,'height':844})
+    assert f.is_visible()
+    assert page.locator('.library-dialog').evaluate('e=>e.scrollWidth<=e.clientWidth+5')
+    (BASE/'test-output').mkdir(exist_ok=True)
+    f.locator('#builder-species-fields').scroll_into_view_if_needed()
+    page.screenshot(path=str(BASE/'test-output'/'milestone17-3-species-mobile.png'))
+    assert not errors,errors
+    browser.close()
+print('PASS: M17.3 species, Eberron Changeling selections, safe unknown speed, owned species pack, mobile')

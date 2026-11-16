@@ -4,22 +4,41 @@ const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 const mod=(score)=>Math.floor((Number(score)-10)/2);
 const proficiency=(level)=>2+Math.floor((Math.max(1,level)-1)/4);
 const signed=(n)=>n>=0?'+'+n:String(n);
-function derived(character,inventory){
+function derived(character,inventory,resources=null){
  const pb=proficiency(character.level),dex=mod(character.scores.dex),cha=mod(character.scores.cha),castingAbility=character.templateKind==='starter'?(character.build?.spellAbility||'cha'):'cha',castMod=mod(character.scores[castingAbility]);
  const I=root.PipInventory,b=I?I.bonusSummary(inventory):{ac:0,attack:0,damage:0,saves:0,initiative:0,speed:0,spellDC:0,spellAttack:0,sources:[]};
- const armor=I?I.armorInfo(inventory,dex,character.templateKind==='starter'?0:cha):{base:10+dex+(character.templateKind==='starter'?0:cha),description:character.templateKind==='starter'?'Unarmored: 10 + DEX':'Genie’s Splendor: 10 + DEX + CHA'};if(character.templateKind==='starter'&&!inventory?.items?.some(i=>i.category==='armor'&&i.equipped))armor.description='Unarmored: 10 + DEX';
- const ac=armor.base+b.ac+(character.templateKind==='starter'?(character.build?.acBonus||0):0);
+ const mechanics=root.FolioClassMechanics,passive=mechanics?mechanics.passive(character,inventory):{unarmoredAC:null,movement:0,attacks:1,rogueSneakAttackDice:0,rageBonus:0};
+ const armor=I?I.armorInfo(inventory,dex,character.templateKind==='starter'?0:cha,character):{base:10+dex+(character.templateKind==='starter'?0:cha),description:character.templateKind==='starter'?'Unarmored: 10 + DEX':'Genie’s Splendor: 10 + DEX + CHA'};if(character.templateKind==='starter'&&!inventory?.items?.some(i=>i.category==='armor'&&i.equipped))armor.description='Unarmored: 10 + DEX';
+ const warlockMageArmor=character.templateKind==='starter'&&(character.build?.characterClass||character.className)==='Warlock'&&!!resources?.classState?.warlockMageArmor&&!inventory?.items?.some(i=>i.category==='armor'&&i.equipped);const natural=warlockMageArmor?Math.max(armor.base,13+dex):passive.unarmoredAC==null?armor.base:armor.base+(passive.unarmoredAC-(10+dex));if(warlockMageArmor)armor.description='Mage Armor (8-hour effect): 13 + DEX';
+ if(passive.unarmoredAC!=null)armor.description=(mechanics.draconic?.(character)?'Draconic Resilience':(character.build?.characterClass||character.className)+' Unarmored Defense')+(mechanics.armorStatus(inventory).shield?' + Shield':'');
+ const grants=character.templateKind==='starter'?(character.build?.grantedFeatNames||[]):[];const ft=root.FolioFeat2024?.passive(character)||{truesight:0,blindsight:0};
+ const defense=grants.some(n=>n==='Fighting Style: Defense'||n==='Defense')&&!!inventory?.items?.some(i=>i.equipped&&i.quantity>0&&i.category==='armor');
+ const alert=grants.includes('Alert');
+ const starterClass=character.templateKind==='starter'?(character.build?.characterClass||character.className):'';
+ const rangerGloom=starterClass==='Ranger'&&character.level>=3&&(character.build?.subclass||character.subclass)==='Gloom Stalker';
+ const rangerFey=starterClass==='Ranger'&&character.level>=3&&(character.build?.subclass||character.subclass)==='Fey Wanderer';
+ const disabledAura=((resources?.hp??1)<=0)||(resources?.conditions||[]).some(x=>['Incapacitated','Paralyzed','Petrified','Stunned','Unconscious'].includes(x));
+ const auraProtection=starterClass==='Paladin'&&character.level>=6&&!disabledAura?Math.max(1,cha):0;
+ const smiteCover=starterClass==='Paladin'&&character.level>=15&&(character.build?.subclass||character.subclass)==='Oath of Devotion'&&!!resources?.classState?.smiteProtectionActive&&!disabledAura;
+ const innateSorcery=starterClass==='Sorcerer'&&!!resources?.classState?.innateSorcery&&!disabledAura;
+ const fighterCover=starterClass==='Fighter'&&!!resources?.classState?.psiBulwarkActive&&!disabledAura;
+ const fighterManeuverAC=starterClass==='Fighter'&&!disabledAura?Number(resources?.classState?.fighterEvasiveBonus||0)+(resources?.classState?.fighterBaitSelf?Number(resources?.classState?.fighterBaitBonus||0):0):0;
+ const ac=natural+b.ac+(character.templateKind==='starter'?(character.build?.acBonus||0):0)+(defense?1:0)+fighterManeuverAC+(fighterCover?2:0);
+ const druidForm=starterClass==='Druid'?resources?.classState?.druidShape:null;
+ if(druidForm)armor.description='Wild Shape: '+druidForm.name+' (verified Beast AC)';
  const o=character.overrides||{},pick=(key,value)=>Number.isInteger(o[key])?o[key]:value;
- return {pb,ac:pick('ac',ac),armorDescription:armor.description,bonuses:b,overrides:o,initiative:pick('initiative',dex+b.initiative),speed:pick('speed',character.speed+b.speed),spellDC:pick('spellDC',8+pb+castMod+b.spellDC),spellAttack:pick('spellAttack',pb+castMod+b.spellAttack),
+ return {pb,ac:pick('ac',druidForm?druidForm.formAC:ac)+(smiteCover?2:0),smiteProtectionCover:smiteCover,armorDescription:armor.description,bonuses:b,overrides:o,initiative:pick('initiative',dex+b.initiative+(alert?pb:0)+(starterClass==='Bard'&&character.level>=2?Math.floor(pb/2):0)),speed:pick('speed',druidForm?druidForm.speed:Math.max(0,character.speed+b.speed+(armor.speedPenalty||0)+passive.movement+(rangerGloom&&resources?.classState?.rangerGloomLeapActive?10:0)+(resources?.speciesState?.active?.large&&character.templateKind==='starter'&&character.species==='Goliath'?10:0))),attacksPerAction:passive.attacks,sneakAttackDice:passive.rogueSneakAttackDice,blindsightFeet:Math.max(ft.blindsight||0,starterClass==='Ranger'&&character.level>=18?30:0),swimSpeed:(starterClass==='Ranger'&&character.level>=6||starterClass==='Warlock'&&root.FolioWarlock2024?.has(character,'Gift of the Depths'))?Math.max(0,character.speed+b.speed+(armor.speedPenalty||0)+passive.movement):null,devilsSightFeet:starterClass==='Warlock'&&root.FolioWarlock2024?.has(character,'Devil’s Sight')?120:0,truesightFeet:Math.max(ft.truesight||0,starterClass==='Warlock'&&root.FolioWarlock2024?.has(character,'Witch Sight')?30:0),climbSpeed:starterClass==='Ranger'&&character.level>=6?Math.max(0,character.speed+b.speed+(armor.speedPenalty||0)+passive.movement):starterClass==='Rogue'&&(character.build?.subclass||character.subclass)==='Thief'&&character.level>=3?Math.max(0,character.speed+b.speed+(armor.speedPenalty||0)+passive.movement):null,jumpAbility:starterClass==='Rogue'&&(character.build?.subclass||character.subclass)==='Thief'&&character.level>=3?'dex':'str',rageDamageBonus:passive.rageBonus,spellDC:pick('spellDC',8+pb+castMod+b.spellDC+(innateSorcery?1:0)),spellAttack:pick('spellAttack',pb+castMod+b.spellAttack),innateSorcery,auraProtection,
   aura:character.templateKind==='starter'?0:cha,attackBonus:pick('attackBonus',dex+pb+b.attack),attackDamage:pick('attackDamage',dex+b.damage),
-  saves:Object.fromEntries(Object.entries(character.scores).map(([k,v])=>[k,mod(v)+(character.profSaves.includes(k)?pb:0)+b.saves])),
-  skills:Object.fromEntries((root.PipData?root.PipData.skills:[]).map(([name,ability])=>[name,mod(character.scores[ability])+(character.profSkills.includes(name)?pb:0)+(character.expertise.includes(name)?pb:0)]))};
+  saves:Object.fromEntries(Object.entries(character.scores).map(([k,v])=>[k,mod(v)+((character.profSaves.includes(k)||(starterClass==='Monk'&&character.level>=14)||(rangerGloom&&character.level>=7&&(k==='wis'||(character.profSaves.includes('wis')&&k===(character.build?.rangerIronSave||'int')))))?pb:0)+b.saves+auraProtection+(smiteCover&&k==='dex'?2:0)+(fighterCover&&k==='dex'?2:0)])),
+  skills:Object.fromEntries((root.PipData?root.PipData.skills:[]).map(([name,ability])=>[name,mod(character.scores[ability])+((character.profSkills||[]).includes(name)?pb:0)+((character.expertise||[]).includes(name)?pb:0)+(rangerFey&&ability==='cha'?mod(character.scores.wis):0)+(starterClass==='Druid'&&character.build?.druidOrder==='Magician'&&['Arcana','Nature'].includes(name)?Math.max(1,mod(character.scores.wis)):0)+(starterClass==='Bard'&&character.level>=2&&!(character.profSkills||[]).includes(name)?Math.floor(pb/2):0+(starterClass==='Cleric'&&character.build?.clericOrder==='Thaumaturge'&&['Arcana','Religion'].includes(name)?mod(character.scores.wis):0))]))};
 }
+// 2024 concentration: DC 10 or half damage (round down), whichever is greater, maximum 30.
+function concentrationDC(amount){return Math.min(30,Math.max(10,Math.floor(Number(amount)/2)));}
 function applyDamage(resources,amount){
  amount=Math.max(0,Math.floor(Number(amount)||0));
  const absorbed=Math.min(resources.tempHp,amount);
  const hit=Math.max(0,amount-absorbed);
- return {...resources,tempHp:resources.tempHp-absorbed,hp:Math.max(0,resources.hp-hit),lastConcentrationDC:amount>0&&resources.concentration?Math.max(10,Math.floor(amount/2)):null};
+ return {...resources,tempHp:resources.tempHp-absorbed,hp:Math.max(0,resources.hp-hit),lastConcentrationDC:amount>0&&resources.concentration?concentrationDC(amount):null};
 }
 function applyHealing(resources,amount){amount=Math.max(0,Math.floor(Number(amount)||0));const hp=clamp(resources.hp+amount,0,resources.maxHp);return {...resources,hp,deathSuccess:hp>0?0:resources.deathSuccess,deathFailure:hp>0?0:resources.deathFailure,lastConcentrationDC:null};}
 function changeResource(resources,key,delta,max){return {...resources,[key]:clamp((resources[key]||0)+delta,0,max)};}
@@ -52,6 +71,6 @@ function shiftTie(encounter,id,direction){
 function shortRest(resources,level=7){const cap=level>=3?(level>=11?3:2):0;return {...resources,channelDivinity:Math.min(cap,resources.channelDivinity+1)};}
 function longRest(resources,level=7){const slots=level>=7?[4,3]:level>=5?[4,2]:level>=3?[3,0]:[2,0];return {...resources,hp:resources.maxHp,tempHp:0,layOnHands:level*5,slots1:slots[0],slots2:slots[1],channelDivinity:level>=3?(level>=11?3:2):0,hitDice:level,freeDivineSmite:level>=2?1:0,freeFindSteed:level>=5?1:0,freeHuntersMark:1,freeMistyStep:1,deathSuccess:0,deathFailure:0,lastConcentrationDC:null,concentration:'',conditions:[]};}
 function makeId(){return typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);}
-root.PipCore={clamp,mod,proficiency,signed,derived,applyDamage,applyHealing,changeResource,sortRoster,addActor,beginEncounter,nextTurn,removeActor,setActorInitiative,shiftTie,shortRest,longRest,makeId};
+root.PipCore={clamp,mod,proficiency,signed,derived,concentrationDC,applyDamage,applyHealing,changeResource,sortRoster,addActor,beginEncounter,nextTurn,removeActor,setActorInitiative,shiftTie,shortRest,longRest,makeId};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.PipCore;
 })(typeof window!=='undefined'?window:globalThis);

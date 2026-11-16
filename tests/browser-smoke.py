@@ -96,6 +96,7 @@ with sync_playwright() as p:
     assert '4 / 4' in page.locator('.builder-slot-card').first.inner_text()
     # Saved Milestone 9 homebrew entries can be copied into a character sheet.
     page.locator('[data-action=nav][data-tab=spellbook]').first.click()
+    page.locator('.custom-spell-menu summary').click()
     page.locator('[data-action=homebrew-spell-open]').first.click()
     page.locator('[data-action=homebrew-import-spell]').first.click()
     assert 'Butterfly Step' in page.locator('.spellbook-preview').inner_text()
@@ -105,10 +106,16 @@ with sync_playwright() as p:
     assert 'Moonsteel Rapier' in page.locator('.inventory-ledger').inner_text()
     page.screenshot(path=str(out/'homebrew-inventory.png'),full_page=True)
 
-    # SRD spell catalogue: filter, select an initial list, cast and track concentration.
+    # Current Wizards must record spells in their persistent spellbook before preparing them.
+    page.locator('[data-action=nav][data-tab=sheet]').first.click()
+    for name in ('Shield','Web'):
+        spell_key=page.evaluate("n => window.FolioSpellCatalog.spells.find(s=>s.name===n).key", name)
+        page.locator('#wiz-26-book-spell').select_option(spell_key)
+        page.locator('[data-action=wizard-2024][data-kind=learn]').first.click()
+    # Spell catalogue: filter, select an initial list, cast and track concentration.
     page.locator('[data-action=nav][data-tab=spellbook]').first.click()
     page.locator('[data-action=open-prep]').click()
-    assert '339 spells in the bundled catalogue' in page.locator('body').inner_text()
+    assert 'indexed spells' in page.locator('body').inner_text()
     assert 'Wizard spell catalogue' in page.locator('body').inner_text()
     shield_key=page.evaluate("window.FolioSpellCatalog.spells.find(s=>s.name==='Shield').key")
     web_key=page.evaluate("window.FolioSpellCatalog.spells.find(s=>s.name==='Web').key")

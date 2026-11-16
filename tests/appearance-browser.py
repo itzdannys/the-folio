@@ -32,7 +32,7 @@ with sync_playwright() as p:
   assert page.evaluate('document.body.dataset.folioTheme')=='masquerade'
   assert page.locator('[data-action=open-appearance]').count()==1
   print('STEP page.locator(\'[data-action=open-appearance]\').click()',flush=True)
-  page.locator('[data-action=open-appearance]').click()
+  page.locator('.folio-options-menu summary').click();page.locator('[data-action=open-appearance]').click()
   assert page.locator('#appearance-form').count()==1
   assert page.locator('[name=preset]:checked').input_value()=='masquerade'
   page.screenshot(path=str(out/'appearance-masquerade-desktop.png'),full_page=True)
@@ -55,7 +55,7 @@ with sync_playwright() as p:
   page.locator('[data-action=undo]').first.click()
   assert page.evaluate('document.body.dataset.folioTheme')=='masquerade'
   # Save a reusable theme and verify applying it to another character.
-  page.locator('[data-action=open-appearance]').click()
+  page.locator('.folio-options-menu summary').click();page.locator('[data-action=open-appearance]').click()
   page.locator('.preset-picker').filter(has_text='Celestial Archive').click()
   page.locator('input[name=accent]').fill('#abcabc')
   page.locator('#appearance-theme-name').fill('Night Archive')
@@ -87,7 +87,7 @@ with sync_playwright() as p:
   f.locator('button[type=submit]').click()
   page.locator('.library-character').filter(has_text='Lyra').locator('[data-action=library-open]').click()
   assert page.evaluate('document.body.dataset.folioTheme')=='classic'
-  page.locator('[data-action=open-appearance]').click()
+  page.locator('.folio-options-menu summary').click();page.locator('[data-action=open-appearance]').click()
   page.locator('#appearance-saved-theme').select_option(label='Night Archive')
   page.locator('[data-action=appearance-use-theme]').click()
   assert page.locator('input[name=preset]:checked').input_value()=='celestial'
@@ -114,7 +114,7 @@ with sync_playwright() as p:
   assert by['Pip']['stack']['present']['resources']['hp']==60
   # Mobile appearance studio and background layer.
   page.set_viewport_size({'width':390,'height':844})
-  page.locator('[data-action=open-appearance]').click()
+  page.locator('.folio-options-menu summary').click();page.locator('[data-action=open-appearance]').click()
   page.screenshot(path=str(out/'appearance-mobile.png'),full_page=True)
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),page.evaluate('document.documentElement.scrollWidth')
   assert not errors, errors

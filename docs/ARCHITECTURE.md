@@ -7,8 +7,8 @@ The Folio is a **client-side, offline-first application** that works from a loca
 1. `index.html` loads the JavaScript modules in order, followed by the main app bootstrap.
 2. The Library manages independent character stacks and campaign folders (`js/library.js`, `js/library-ui.js`).
 3. Character and rules modules derive displayed stats, resources, spell access, and weapon actions (`js/character*.js`, `js/core.js`, `js/builder*.js`, `js/rules-*.js`).
-4. UI modules render the Sheet, Combat, Spellbook, Inventory, Journal, Appearance and Quick Roll.
-5. `js/storage.js` handles local persistence. Use exported JSON as the portable recovery format.
+4. UI modules render the Sheet, Combat, Spellbook, Inventory, Journal, Appearance, Artwork Studio, and Quick Roll.
+5. `js/library.js` saves each character’s artwork once on the library record (not in combat Undo snapshots), while `js/storage.js` handles legacy sheet persistence. Use exported JSON as the portable recovery format.
 
 ## Important modules
 
@@ -19,9 +19,12 @@ The Folio is a **client-side, offline-first application** that works from a loca
 | Character building & homebrew | `js/builder.js`, `js/builder-ui.js`, `js/homebrew-bridge.js` |
 | Stats, inventory, journal | `js/core.js`, `js/character.js`, `js/inventory*.js`, `js/journal*.js` |
 | Spells, catalogues and rules | `js/spell-catalog.js`, `js/spells.js`, `js/rules-engine.js`, `js/rules-ui.js` |
+| Spell organization (presentation only) | `js/spell-organizer.js`, `js/spell-organizer-ui.js`; saved in `spellbook.organizer` |
 | Weapon mechanics | `js/weapon-catalog.js`, `js/weapon-rules.js` |
 | Random dice results and 3D drawing | `js/dice.js`, `js/dice-3d.js`, `js/dice-geometry.js` |
 | Appearance & themes | `js/appearance.js`, `js/appearance-ui.js` |
+| Per-character artwork, image validation and token maker | `js/artwork.js`, `js/artwork-ui.js` |
+| Saved character-sheet layout and migration | `js/layout.js`, `js/main.js`, `js/storage.js` |
 | Local storage | `js/storage.js` |
 
 ## Working on the project

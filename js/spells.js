@@ -50,7 +50,7 @@ const initialPrepared=['bless','command','divine-favor','shield-of-faith','aid',
 const grants=['divine-smite','find-steed','elementalism','chromatic-orb','thunderous-smite','mirror-image','phantasmal-force','hunters-mark','misty-step'];
 const freeKeys={'divine-smite':'freeDivineSmite','find-steed':'freeFindSteed','hunters-mark':'freeHuntersMark','misty-step':'freeMistyStep'};
 const maxPrepared=7;
-function newBook(){return {prepared:[...initialPrepared],queued:[],favorites:[],custom:[],castLog:[],loadouts:[],catalogSelections:[],catalogPending:null,catalogQueued:[],catalogLevelUpQueued:[]};}
+function newBook(){return {prepared:[...initialPrepared],queued:[],favorites:[],custom:[],castLog:[],loadouts:[],organizer:{folders:[],categories:[],assignments:{},sets:[]},catalogSelections:[],catalogPending:null,catalogQueued:[],catalogLevelUpQueued:[],catalogSnapshots:{}};}
 function activeSpells(book){return [...new Set([...book.prepared,...grants,...book.custom.filter(x=>x.alwaysPrepared).map(x=>x.id)])];}
 function spell(id,book){return allMap.get(id)||(book?.custom||[]).find(x=>x.id===id)||root.FolioSpellRules?.getSpell(id,book)||null;}
 function eligible(id){if(paladinIds.includes(id))return true;const sp=root.FolioSpellRules?.getSpell(id);return !!sp&&(sp.classes||[]).includes('Paladin');}
@@ -65,7 +65,7 @@ function castOptions(id,book,resources){const s=spell(id,book);if(!s||!activeSpe
  const free=freeKeys[id];if(free&&resources[free]>0)choices.push({key:free,label:'Free use',cost:0});
  for(const level of [1,2])if(level>=s.level&&resources['slots'+level]>0)choices.push({key:'slots'+level,label:`Level ${level} slot`,cost:level});return choices;}
 function cast(book,resources,id,cost){const s=spell(id,book),option=castOptions(id,book,resources).find(x=>x.key===cost);if(!option)throw Error('That casting cost is not available.');const changed={...resources};if(cost!=='cantrip'&&cost!=='ritual')changed[cost]--;
- if(s.concentration){changed.concentration=s.name;changed.lastConcentrationDC=null;}return {book:{...book,castLog:[...(book.castLog||[]).slice(-39),{id,cost,at:new Date().toISOString()}]},resources:changed};}
+ if(s.concentration&&!s.referenceOnly){changed.concentration=s.name;changed.lastConcentrationDC=null;}return {book:{...book,castLog:[...(book.castLog||[]).slice(-39),{id,cost,manual:!!s.referenceOnly,at:new Date().toISOString()}]},resources:changed};}
 
 function saveLoadout(book,name,id){const title=String(name).trim();if(!title||title.length>60)throw Error('Choose a short loadout name.');return {...book,loadouts:[...(book.loadouts||[]),{id,name:title,spells:[...book.prepared]}]};}
 function planLoadout(book,id){const target=(book.loadouts||[]).find(x=>x.id===id);if(!target)throw Error('Saved loadout not found.');if(book.queued.length)throw Error('Clear existing queued swaps before planning a saved loadout.');
